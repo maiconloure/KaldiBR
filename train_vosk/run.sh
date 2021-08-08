@@ -33,8 +33,8 @@ if [ $stage -le -1 ]; then
   # NOTE: CB: if you have multiple datasets you better download them beforehand,
   #       comment out this script and call "link_local_data.sh" instead.
   echo "[$(date +'%F %T')] $0: download data (85M)" | lolcat
-  fblocal/download_data.sh $data $data_url || exit 1
-  #fblocal/link_local_data.sh --nj 8 ${HOME}/fb-gitlab/fb-audio-corpora $data || exit 1
+  # fblocal/download_data.sh $data $data_url || exit 1
+  fblocal/link_local_data.sh --nj 30 ${HOME}/fb-gitlab/fb-audio-corpora $data || exit 1
 fi
 
 if [ $stage -le 0 ]; then
@@ -49,12 +49,12 @@ fi
 if [ $stage -le 1 ]; then
   # format the data as Kaldi data directories
   echo "[$(date +'%F %T')] $0: prep data" | lolcat
-  fblocal/prep_data.sh --nj 3 --split-random true $data data/
+  fblocal/prep_data.sh --nj 30 --split-random true $data data/
   #fblocal/prep_data.sh --nj 8 --test-dir lapsbm16k $data ./data
 
   # CB: stage 3 doesn't need local/lm dir
   echo "[$(date +'%F %T')] $0: prep dict" | lolcat 
-  fblocal/prep_dict.sh --nj 4 data/local/dict_nosp/
+  fblocal/prep_dict.sh --nj 30 data/local/dict_nosp/
 
   # CB: leave as it is
   echo "[$(date +'%F %T')] $0: prep lang" | lolcat
@@ -74,7 +74,7 @@ if [ $stage -le 2 ]; then
   mfccdir=mfcc
   echo "[$(date +'%F %T')] $0: compute mfcc and cmvn" | lolcat
   for part in train test; do
-    steps/make_mfcc.sh --cmd "$train_cmd" --nj 10 data/$part exp/make_mfcc/$part $mfccdir
+    steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part exp/make_mfcc/$part $mfccdir
     steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
   done
 
@@ -89,7 +89,7 @@ fi
 if [ $stage -le 3 ]; then
   # TODO(galv): Is this too many jobs for a smaller dataset?
   echo "[$(date +'%F %T')] $0: train mono" | lolcat
-  steps/train_mono.sh --boost-silence 1.25 --nj 5 --cmd "$train_cmd" \
+  steps/train_mono.sh --boost-silence 1.25 --nj 30 --cmd "$train_cmd" \
     data/train_500short data/lang_nosp exp/mono
 
   if $decode ; then
@@ -99,7 +99,7 @@ if [ $stage -le 3 ]; then
       utils/mkgraph.sh data/lang_nosp_test_tgsmall \
         exp/mono exp/mono/graph_nosp_tgsmall
       echo "[$(date +'%F %T')] $0: decoding mono" | lolcat
-      steps/decode.sh --nj 6 --cmd "$decode_cmd" exp/mono/graph_nosp_tgsmall \
+      steps/decode.sh --nj 30 --cmd "$decode_cmd" exp/mono/graph_nosp_tgsmall \
         data/test exp/mono/decode_nosp_tgsmall_test
       grep -Rn WER exp/mono/decode_nosp_tgsmall_test | \
           utils/best_wer.sh  > exp/mono/decode_nosp_tgsmall_test/fbwer.txt
@@ -108,7 +108,7 @@ if [ $stage -le 3 ]; then
   fi
 
   echo "[$(date +'%F %T')] $0: align mono" | lolcat
-  steps/align_si.sh --boost-silence 1.25 --nj 5 --cmd "$train_cmd" \
+  steps/align_si.sh --boost-silence 1.25 --nj 30 --cmd "$train_cmd" \
     data/train data/lang_nosp exp/mono exp/mono_ali_train
 fi
 
@@ -125,7 +125,7 @@ if [ $stage -le 4 ]; then
       utils/mkgraph.sh data/lang_nosp_test_tgsmall \
         exp/tri1 exp/tri1/graph_nosp_tgsmall
       echo "[$(date +'%F %T')] $0: decoding deltas" | lolcat
-      steps/decode.sh --nj 6 --cmd "$decode_cmd" exp/tri1/graph_nosp_tgsmall \
+      steps/decode.sh --nj 30 --cmd "$decode_cmd" exp/tri1/graph_nosp_tgsmall \
         data/test exp/tri1/decode_nosp_tgsmall_test
       grep -Rn WER exp/tri1/decode_nosp_tgsmall_test | \
           utils/best_wer.sh > exp/tri1/decode_nosp_tgsmall_test/fbwer.txt
@@ -140,7 +140,7 @@ if [ $stage -le 4 ]; then
   fi
 
   echo "[$(date +'%F %T')] $0: align deltas" | lolcat
-  steps/align_si.sh --nj 5 --cmd "$train_cmd" \
+  steps/align_si.sh --nj 30 --cmd "$train_cmd" \
     data/train data/lang_nosp exp/tri1 exp/tri1_ali_train
 fi
 
@@ -158,7 +158,7 @@ if [ $stage -le 5 ]; then
       utils/mkgraph.sh data/lang_nosp_test_tgsmall \
         exp/tri2b exp/tri2b/graph_nosp_tgsmall
       echo "[$(date +'%F %T')] $0: decoding lda mllt" | lolcat
-      steps/decode.sh --nj 6 --cmd "$decode_cmd" exp/tri2b/graph_nosp_tgsmall \
+      steps/decode.sh --nj 30 --cmd "$decode_cmd" exp/tri2b/graph_nosp_tgsmall \
         data/test exp/tri2b/decode_nosp_tgsmall_test
       grep -Rn WER exp/tri2b/decode_nosp_tgsmall_test | \
           utils/best_wer.sh > exp/tri2b/decode_nosp_tgsmall_test/fbwer.txt
@@ -174,7 +174,7 @@ if [ $stage -le 5 ]; then
 
   # Align utts using the tri2b model
   echo "[$(date +'%F %T')] $0: align lda mllt" | lolcat
-  steps/align_si.sh  --nj 5 --cmd "$train_cmd" --use-graphs true \
+  steps/align_si.sh  --nj 30 --cmd "$train_cmd" --use-graphs true \
     data/train data/lang_nosp exp/tri2b exp/tri2b_ali_train
 fi
 
@@ -191,7 +191,7 @@ if [ $stage -le 6 ]; then
       utils/mkgraph.sh data/lang_nosp_test_tgsmall \
         exp/tri3b exp/tri3b/graph_nosp_tgsmall
       echo "[$(date +'%F %T')] $0: decoding sat (nosp)" | lolcat
-      steps/decode_fmllr.sh --nj 6 --cmd "$decode_cmd" \
+      steps/decode_fmllr.sh --nj 30 --cmd "$decode_cmd" \
         exp/tri3b/graph_nosp_tgsmall data/test \
         exp/tri3b/decode_nosp_tgsmall_test
       grep -Rn WER exp/tri3b/decode_nosp_tgsmall_test | \
@@ -231,7 +231,7 @@ if [ $stage -le 7 ]; then
       data/lang data/lang_test_tglarge
 
   echo "[$(date +'%F %T')] $0: align fmllr" | lolcat
-  steps/align_fmllr.sh --nj 5 --cmd "$train_cmd" \
+  steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
     data/train data/lang exp/tri3b exp/tri3b_ali_train
 fi
 
@@ -244,7 +244,7 @@ if [ $stage -le 8 ]; then
       utils/mkgraph.sh data/lang_test_tgsmall \
                        exp/tri3b exp/tri3b/graph_tgsmall
       echo "[$(date +'%F %T')] $0: decoding sat (with sil probs)" | lolcat
-      steps/decode_fmllr.sh --nj 6 --cmd "$decode_cmd" \
+      steps/decode_fmllr.sh --nj 30 --cmd "$decode_cmd" \
                             exp/tri3b/graph_tgsmall data/test \
                             exp/tri3b/decode_tgsmall_test
       grep -Rn WER exp/tri3b/decode_tgsmall_test | \
@@ -270,7 +270,7 @@ fi
 if [ $stage -le 9 ]; then
   echo "[$(date +'%F %T')] $0: run TDNN script" | lolcat
   fblocal/chain/run_tdnn.sh --use-gpu true \
-      --jobs-initial 1 --jobs-final 1 --num-epochs 10
+      --jobs-initial 2 --jobs-final 12 --num-epochs 20
 fi
 
 end_time=$(date)

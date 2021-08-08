@@ -16,8 +16,8 @@ fi
 data_dir=$1
 corpus_url=$2
 
-num_files=700
-sha=460eab24bf0f069526a64fe7fb29639d7aa6f238
+num_files=166352
+sha=1671aff3c9dec5aee4c5e3fdaec164d2a8417f96
 filename=$(basename $corpus_url)
 if [ ! -f $data_dir/$filename ] ; then
     wget -q --show-progress $corpus_url -P $data_dir || exit 1
